@@ -39,23 +39,26 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     // 👨‍🏫 RUTAS PARA MAESTROS (Teacher)
     // ==========================================
-    // Todas estas rutas empiezan con: /teacher/...
     Route::prefix('teacher')->name('teacher.')->group(function () {
         
         // Panel principal del maestro
         Route::get('/dashboard', [ClassroomController::class, 'index'])->name('dashboard');
         
-        // Guardar clase nueva (Si usas el formulario del dashboard)
-        Route::post('/classrooms', [ClassroomController::class, 'store'])->name('classrooms.store'); // <--- FALTABA ESTA
-
+        // 👇 ESTAS DOS RUTAS SE HABÍAN BORRADO 👇
+        // Guardar clase nueva
+        Route::post('/classrooms', [ClassroomController::class, 'store'])->name('classrooms.store');
         // Ver una clase (Vista Maestro)
         Route::get('/classrooms/{classroom}', [ClassroomController::class, 'show'])->name('classrooms.show');
-        
-        // Eliminar una clase (Para el botón rojo del Dashboard)
-        Route::delete('/classrooms/{classroom}', [ClassroomController::class, 'destroy'])->name('classrooms.destroy'); // <--- FALTABA ESTA
+        // 👆 --------------------------------- 👆
 
-        // Guardar actividad nueva
+        // Eliminar clase
+        Route::delete('/classrooms/{classroom}', [ClassroomController::class, 'destroy'])->name('classrooms.destroy');
+
+        // Guardar actividad nueva (.h5p)
         Route::post('/classrooms/{classroom}/activities', [ClassroomController::class, 'storeActivity'])->name('activities.store');
+        
+        // Ruta para generar Sopa de Letras (NUEVA)
+        Route::post('/classrooms/{classroom}/wordsearch', [ClassroomController::class, 'storeWordSearch'])->name('activities.wordsearch');
         
         // Jugar actividad (Modo Vista Previa)
         Route::get('/classrooms/{classroom}/activities/{activity}', [ClassroomController::class, 'play'])->name('activities.play');
@@ -71,7 +74,6 @@ Route::middleware('auth')->group(function () {
     // ==========================================
     // 👨‍🎓 RUTAS PARA ESTUDIANTES (Student)
     // ==========================================
-    // Todas estas rutas empiezan con: /student/...
     Route::middleware('verified')->prefix('student')->name('student.')->group(function () {
         
         // Dashboard del alumno

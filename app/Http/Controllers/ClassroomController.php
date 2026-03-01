@@ -10,6 +10,7 @@ use Inertia\Inertia; // Para conectar con React
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 use App\Models\Activity;
+use Illuminate\Support\Facades\File;
 
 class ClassroomController extends Controller
 {
@@ -173,5 +174,62 @@ class ClassroomController extends Controller
         $activity->delete();
 
         return back()->with('success', 'Actividad eliminada correctamente.');
+    }
+    // Generador Automático de Sopa de Letras
+public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    {
+        // 1. Validar
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'words' => 'required|string', 
+        ]);
+
+        // 2. Limpiar palabras
+        $rawWords = explode(',', $request->words);
+        $cleanWords = array_map('trim', $rawWords);
+        $cleanWords = array_map('strtoupper', $cleanWords);
+        $finalWordsString = implode(',', $cleanWords); 
+
+        // 3. Crear el registro en la BD
+        $activity = new \App\Models\Activity();
+        $activity->title = $request->title;
+        $activity->h5p_type = 'H5P.FindTheWords'; 
+        $activity->classroom_id = $classroom->id;
+        
+        // 👇 ESTA ES LA LÍNEA NUEVA QUE FALTA 👇
+        $activity->h5p_parameters = json_encode(['title' => $request->title]); 
+        
+        $activity->save();
+
+        // 🚨 CANDADO: Obligamos a Laravel a refrescar y traernos el ID real de la BD 🚨
+        $activity->refresh();
+
+        if (empty($activity->id)) {
+            // Si la BD falló en darnos el ID, cancelamos todo para evitar otro "derrame"
+            $activity->delete();
+            return back()->withErrors(['title' => 'Error de BD: No se pudo asignar un ID a la actividad.']);
+        }
+
+        // 4. Clonar la carpeta usando el ID seguro
+        $templatePath = public_path('h5p/template_wordsearch');
+        $newActivityPath = public_path('h5p/' . $activity->id);
+
+        if (!\Illuminate\Support\Facades\File::exists($templatePath)) {
+            $activity->delete();
+            return back()->withErrors(['title' => 'Falta la plantilla template_wordsearch en public/h5p/']);
+        }
+
+        \Illuminate\Support\Facades\File::copyDirectory($templatePath, $newActivityPath);
+
+        // 5. Inyectar las palabras nuevas
+        $jsonPath = $newActivityPath . '/content/content.json';
+        if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+            $jsonContent = json_decode(file_get_contents($jsonPath), true);
+            $jsonContent['wordList'] = $finalWordsString;
+            $jsonContent['taskDescription'] = 'Encuentra las siguientes palabras: ' . str_replace(',', ', ', $finalWordsString);
+            file_put_contents($jsonPath, json_encode($jsonContent, JSON_UNESCAPED_UNICODE));
+        }
+
+        return back()->with('success', '¡Sopa de letras generada con éxito!');
     }
 }
