@@ -7,7 +7,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
-        name: '',
+        name: '', // ¡Aquí está el nombre!
+        expediente: '',
         email: '',
         password: '',
         password_confirmation: '',
@@ -26,8 +27,9 @@ export default function Register() {
             <Head title="Register" />
 
             <form onSubmit={submit}>
+                {/* --- CAMPO DE NOMBRE --- */}
                 <div>
-                    <InputLabel htmlFor="name" value="Name" />
+                    <InputLabel htmlFor="name" value="Nombre Completo" />
 
                     <TextInput
                         id="name"
@@ -43,6 +45,24 @@ export default function Register() {
                     <InputError message={errors.name} className="mt-2" />
                 </div>
 
+                {/* --- CAMPO DE EXPEDIENTE --- */}
+                <div className="mt-4">
+                    <InputLabel htmlFor="expediente" value="Número de Expediente" />
+
+                    <TextInput
+                        id="expediente"
+                        name="expediente"
+                        value={data.expediente}
+                        className="mt-1 block w-full"
+                        autoComplete="expediente"
+                        onChange={(e) => setData('expediente', e.target.value)}
+                        required
+                    />
+
+                    <InputError message={errors.expediente} className="mt-2" />
+                </div>
+
+                {/* --- CAMPO DE EMAIL --- */}
                 <div className="mt-4">
                     <InputLabel htmlFor="email" value="Email" />
 
@@ -60,6 +80,7 @@ export default function Register() {
                     <InputError message={errors.email} className="mt-2" />
                 </div>
 
+                {/* --- CAMPO DE PASSWORD --- */}
                 <div className="mt-4">
                     <InputLabel htmlFor="password" value="Password" />
 
@@ -77,6 +98,7 @@ export default function Register() {
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
+                {/* --- CAMPO CONFIRMAR PASSWORD --- */}
                 <div className="mt-4">
                     <InputLabel
                         htmlFor="password_confirmation"

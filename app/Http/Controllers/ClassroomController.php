@@ -52,7 +52,7 @@ class ClassroomController extends Controller
         if ($classroom->teacher_id !== Auth::id()) {
             abort(403, 'No tienes permiso para ver esta clase.');
         }
-
+        $classroom->load('students');
         // 1. Buscamos las actividades de ESTA clase en la base de datos
         $activities = Activity::where('classroom_id', $classroom->id)->get();
 
@@ -231,5 +231,236 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         }
 
         return back()->with('success', '¡Sopa de letras generada con éxito!');
+    }
+    // =========================================================
+    // MOTOR GENERADOR DE CRUCIGRAMAS
+    // =========================================================
+    public function storeCrossword(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    {
+        $request->validate(['title' => 'required|string', 'words' => 'required|string']);
+
+        // 1. Procesar el texto del maestro ("PALABRA: La pista")
+        $lines = explode("\n", str_replace("\r", "", $request->words));
+        $wordList = [];
+        foreach($lines as $line) {
+            if(strpos($line, ':') !== false) {
+                list($answer, $clue) = explode(':', $line, 2);
+                $answer = preg_replace('/[^A-Z]/', '', strtoupper(trim($answer))); // Solo letras
+                if(strlen($answer) > 1) {
+                    $wordList[] = ['answer' => $answer, 'clue' => trim($clue)];
+                }
+            }
+        }
+
+        if(count($wordList) < 2) return back()->withErrors(['words' => 'Se necesitan al menos 2 palabras válidas.']);
+
+        // 2. Ejecutar el Algoritmo de Cruce
+        $placedWords = $this->generateCrosswordLayout($wordList);
+
+        // 3. Guardar en Base de Datos
+        $activity = new \App\Models\Activity();
+        $activity->title = $request->title;
+        $activity->h5p_type = 'H5P.Crossword'; 
+        $activity->classroom_id = $classroom->id;
+        $activity->h5p_parameters = json_encode(['title' => $request->title]); 
+        $activity->save();
+
+        // 4. Clonar Plantilla e Inyectar
+        $templatePath = public_path('h5p/template_crossword');
+        $newPath = public_path('h5p/' . $activity->id);
+
+        if (!\Illuminate\Support\Facades\File::exists($templatePath)) {
+            $activity->delete(); return back()->withErrors(['title' => 'Falta template_crossword en public/h5p']);
+        }
+
+        \Illuminate\Support\Facades\File::copyDirectory($templatePath, $newPath);
+        $jsonPath = $newPath . '/content/content.json';
+        
+        if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+            $json = json_decode(file_get_contents($jsonPath), true);
+            $json['words'] = array_values($placedWords); // Inyectar coordenadas
+            $json['taskDescription'] = 'Resuelve el siguiente crucigrama.';
+            file_put_contents($jsonPath, json_encode($json, JSON_UNESCAPED_UNICODE));
+        }
+
+        return back()->with('success', '¡Crucigrama generado con éxito!');
+    }
+
+    // --- ALGORITMOS PRIVADOS DE CÁLCULO DE COORDENADAS ---
+    private function generateCrosswordLayout($wordList) {
+        $placedWords = []; $grid = [];
+        // Ordenar de la palabra más larga a la más corta para un mejor cruce
+        usort($wordList, function($a, $b) { return strlen($b['answer']) - strlen($a['answer']); });
+
+        foreach ($wordList as $item) {
+            $word = $item['answer']; $placed = false;
+
+            if (empty($placedWords)) {
+                $placedWords[] = $this->placeWordOnGrid($grid, $item, 20, 20, 'across');
+                continue;
+            }
+
+            foreach ($placedWords as $pWord) {
+                if ($placed) break;
+                for ($i = 0; $i < strlen($pWord['answer']); $i++) {
+                    if ($placed) break;
+                    for ($j = 0; $j < strlen($word); $j++) {
+                        if ($pWord['answer'][$i] === $word[$j]) {
+                            // Encontramos una letra igual, intentamos cruzar
+                            $orientation = $pWord['orientation'] === 'across' ? 'down' : 'across';
+                            $startX = $pWord['orientation'] === 'across' ? $pWord['x'] + $i : $pWord['x'] - $j;
+                            $startY = $pWord['orientation'] === 'across' ? $pWord['y'] - $j : $pWord['y'] + $i;
+
+                            if ($this->canPlaceWord($grid, $word, $startX, $startY, $orientation)) {
+                                $placedWords[] = $this->placeWordOnGrid($grid, $item, $startX, $startY, $orientation);
+                                $placed = true; break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Si no comparte letras, la ponemos al final abajo
+            if (!$placed) {
+                $maxY = 20;
+                foreach ($placedWords as $pw) $maxY = max($maxY, $pw['y'] + ($pw['orientation'] == 'down' ? strlen($pw['answer']) : 1));
+                $placedWords[] = $this->placeWordOnGrid($grid, $item, 20, $maxY + 2, 'across');
+            }
+        }
+
+        // Centrar las coordenadas al origen (1,1) para H5P
+        $minX = 999; $minY = 999;
+        foreach ($placedWords as $pw) { $minX = min($minX, $pw['x']); $minY = min($minY, $pw['y']); }
+        foreach ($placedWords as &$pw) { $pw['x'] = $pw['x'] - $minX + 1; $pw['y'] = $pw['y'] - $minY + 1; }
+        return $placedWords;
+    }
+
+    private function canPlaceWord($grid, $word, $x, $y, $orientation) {
+        $len = strlen($word);
+        for ($i = 0; $i < $len; $i++) {
+            $cx = $orientation === 'across' ? $x + $i : $x;
+            $cy = $orientation === 'across' ? $y : $y + $i;
+            if (isset($grid[$cy][$cx]) && $grid[$cy][$cx] !== $word[$i]) return false; // Choca con letra distinta
+            if (!isset($grid[$cy][$cx])) {
+                // Revisar que no toque otra palabra en paralelo
+                if ($orientation === 'across' && (isset($grid[$cy-1][$cx]) || isset($grid[$cy+1][$cx]))) return false;
+                if ($orientation === 'down' && (isset($grid[$cy][$cx-1]) || isset($grid[$cy][$cx+1]))) return false;
+            }
+        }
+        // Espacios vacíos antes y después
+        if ($orientation === 'across' && (isset($grid[$y][$x-1]) || isset($grid[$y][$x+$len]))) return false;
+        if ($orientation === 'down' && (isset($grid[$y-1][$x]) || isset($grid[$y+$len][$x]))) return false;
+        return true;
+    }
+
+    private function placeWordOnGrid(&$grid, $item, $x, $y, $orientation) {
+        for ($i = 0; $i < strlen($item['answer']); $i++) {
+            $cx = $orientation === 'across' ? $x + $i : $x;
+            $cy = $orientation === 'across' ? $y : $y + $i;
+            $grid[$cy][$cx] = $item['answer'][$i];
+        }
+        $item['x'] = $x; $item['y'] = $y; $item['orientation'] = $orientation;
+        return $item;
+    }
+    // =========================================================
+    // GENERADOR DE DRAG THE WORDS
+    // =========================================================
+    public function storeDragWords(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    {
+        // 1. Validar
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'text' => 'required|string', // El texto que trae los *asteriscos*
+        ]);
+
+        // 2. Guardar en Base de Datos
+        $activity = new \App\Models\Activity();
+        $activity->title = $request->title;
+        $activity->h5p_type = 'H5P.DragText'; // Tipo interno
+        $activity->classroom_id = $classroom->id;
+        $activity->h5p_parameters = json_encode(['title' => $request->title]); 
+        $activity->save();
+
+        // 3. Clonar la carpeta de la plantilla
+        $templatePath = public_path('h5p/template_dragwords');
+        $newPath = public_path('h5p/' . $activity->id);
+
+        if (!\Illuminate\Support\Facades\File::exists($templatePath)) {
+            $activity->delete();
+            return back()->withErrors(['title' => 'Falta la plantilla template_dragwords en public/h5p/']);
+        }
+
+        \Illuminate\Support\Facades\File::copyDirectory($templatePath, $newPath);
+
+        // 4. Inyectar el texto en el archivo JSON
+        $jsonPath = $newPath . '/content/content.json';
+        
+        if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+            $json = json_decode(file_get_contents($jsonPath), true);
+            
+            // H5P DragText guarda su texto principal bajo la llave 'textField'
+            $json['textField'] = $request->text;
+            $json['taskDescription'] = 'Arrastra las palabras correctas a los espacios vacíos.';
+            $json['distractors'] = ''; // Borramos cualquier palabra trampa vieja de la plantilla
+            
+            file_put_contents($jsonPath, json_encode($json, JSON_UNESCAPED_UNICODE));
+        }
+
+        return back()->with('success', '¡Actividad de arrastrar palabras generada!');
+    }
+    // =========================================================
+    // GENERADOR DE FILL IN THE BLANKS (RELLENAR HUECOS)
+    // =========================================================
+    public function storeBlanks(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    {
+        // 1. Validar
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'text' => 'required|string', 
+        ]);
+
+        // 2. Guardar en Base de Datos
+        $activity = new \App\Models\Activity();
+        $activity->title = $request->title;
+        $activity->h5p_type = 'H5P.Blanks'; 
+        $activity->classroom_id = $classroom->id;
+        $activity->h5p_parameters = json_encode(['title' => $request->title]); 
+        $activity->save();
+
+        // 3. Clonar la plantilla
+        $templatePath = public_path('h5p/template_blanks');
+        $newPath = public_path('h5p/' . $activity->id);
+
+        if (!\Illuminate\Support\Facades\File::exists($templatePath)) {
+            $activity->delete();
+            return back()->withErrors(['title' => 'Falta la plantilla template_blanks en public/h5p/']);
+        }
+
+        \Illuminate\Support\Facades\File::copyDirectory($templatePath, $newPath);
+
+        // 4. Inyectar el texto
+        $jsonPath = $newPath . '/content/content.json';
+        
+        if (\Illuminate\Support\Facades\File::exists($jsonPath)) {
+            $json = json_decode(file_get_contents($jsonPath), true);
+            
+            // H5P Blanks usa un arreglo "questions" y espera formato HTML <p>
+            $json['questions'] = ['<p>' . nl2br($request->text) . '</p>'];
+            $json['text'] = 'Escribe las palabras que faltan en los siguientes espacios.';
+            
+            file_put_contents($jsonPath, json_encode($json, JSON_UNESCAPED_UNICODE));
+        }
+
+        return back()->with('success', '¡Actividad de rellenar huecos generada!');
+    }
+    // =========================================================
+    // EXPULSAR ALUMNO DE LA CLASE
+    // =========================================================
+    public function removeStudent(\App\Models\Classroom $classroom, \App\Models\User $student)
+    {
+        // "detach" borra el vínculo entre el alumno y la clase en la tabla pivot
+        $classroom->students()->detach($student->id);
+
+        return back()->with('success', 'Alumno eliminado de la clase correctamente.');
     }
 }

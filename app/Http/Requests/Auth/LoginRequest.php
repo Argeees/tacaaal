@@ -49,6 +49,18 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // 🛑 --- EL CADENERO (NUEVO CÓDIGO) --- 🛑
+        // Si el usuario intentó entrar pero su estatus 'is_approved' es falso (0):
+        if (! Auth::user()->is_approved) {
+            Auth::logout(); // Lo sacamos inmediatamente de la sesión
+
+            // Le lanzamos un error en la pantalla de login
+            throw ValidationException::withMessages([
+                'email' => 'Tu cuenta ha sido registrada, pero aún está en espera de ser aprobada por el administrador.',
+            ]);
+        }
+        // -----------------------------------------
+
         RateLimiter::clear($this->throttleKey());
     }
 

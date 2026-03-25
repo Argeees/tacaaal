@@ -18,6 +18,51 @@ export default function TeacherShow({ auth, classroom, activities }) {
         title: '',
         words: '',
     });
+    // --- FORMULARIO 3: CREAR CRUCIGRAMA ---
+    const { data: cwData, setData: setCwData, post: postCw, processing: procCw, reset: resetCw, errors: errCw } = useForm({
+        title: '',
+        words: '',
+    });
+
+    const submitCrossword = (e) => {
+        e.preventDefault();
+        postCw(route('teacher.activities.crossword', classroom.id), {
+            onSuccess: () => {
+                resetCw();
+                setCreationMode('upload');
+            },
+        });
+    };
+    // --- FORMULARIO 4: DRAG THE WORDS ---
+    const { data: dwData, setData: setDwData, post: postDw, processing: procDw, reset: resetDw, errors: errDw } = useForm({
+        title: '',
+        text: '', // Aquí guardaremos el texto con asteriscos
+    });
+
+    const submitDragWords = (e) => {
+        e.preventDefault();
+        postDw(route('teacher.activities.dragwords', classroom.id), {
+            onSuccess: () => {
+                resetDw();
+                setCreationMode('upload');
+            },
+        });
+    };
+    // --- FORMULARIO 5: FILL THE BLANKS ---
+    const { data: fbData, setData: setFbData, post: postFb, processing: procFb, reset: resetFb, errors: errFb } = useForm({
+        title: '',
+        text: '',
+    });
+
+    const submitBlanks = (e) => {
+        e.preventDefault();
+        postFb(route('teacher.activities.blanks', classroom.id), {
+            onSuccess: () => {
+                resetFb();
+                setCreationMode('upload');
+            },
+        });
+    };
 
     // Acción al subir archivo
     const submitUpload = (e) => {
@@ -90,13 +135,31 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                         onClick={() => setCreationMode('upload')}
                                         className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'upload' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
-                                        📁 Subir Archivo .h5p
+                                        Subir Archivo .h5p
                                     </button>
                                     <button
                                         onClick={() => setCreationMode('wordsearch')}
                                         className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'wordsearch' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
-                                        🧩 Crear Sopa de Letras
+                                        Crear Sopa de Letras
+                                    </button>
+                                    <button
+                                        onClick={() => setCreationMode('crossword')}
+                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'crossword' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                    >
+                                        Crear Crucigrama
+                                    </button>
+                                    <button
+                                        onClick={() => setCreationMode('dragwords')}
+                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'dragwords' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                    >
+                                        Arrastrar Palabras
+                                    </button>
+                                    <button
+                                        onClick={() => setCreationMode('blanks')}
+                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'blanks' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                    >
+                                        Rellenar Huecos
                                     </button>
                                 </div>
 
@@ -159,7 +222,79 @@ export default function TeacherShow({ auth, classroom, activities }) {
 
                                         <div className="flex justify-end">
                                             <button type="submit" disabled={procWs} className="bg-brand-500 text-dark-700 px-6 py-2 rounded shadow hover:bg-brand-400 text-sm font-bold transition disabled:opacity-50">
-                                                {procWs ? 'Generando...' : '✨ Generar Sopa de Letras'}
+                                                {procWs ? 'Generando...' : ' Generar Sopa de Letras'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                                {/* PESTAÑA 3: Formulario Creador de Crucigrama */}
+                                {creationMode === 'crossword' && (
+                                    <form onSubmit={submitCrossword} className="flex flex-col gap-4 animate-fade-in-up">
+                                        <div>
+                                            <input type="text" placeholder="Título (Ej: Conceptos de Biología)" value={cwData.title} onChange={e => setCwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                            {errCw.title && <div className="text-red-500 text-xs mt-1">{errCw.title}</div>}
+                                        </div>
+                                        <div>
+                                            <textarea
+                                                placeholder="Escribe PALABRA: Pista.&#10;Ejemplo:&#10;GATO: Animal que caza ratones.&#10;PERRO: El mejor amigo del hombre."
+                                                value={cwData.words}
+                                                onChange={e => setCwData('words', e.target.value)}
+                                                className="rounded-md border-gray-300 px-4 py-2 text-sm w-full h-32 focus:ring-brand-500 focus:border-brand-500"
+                                            ></textarea>
+                                            <p className="text-xs text-gray-500 mt-1">Escribe la respuesta, pon dos puntos (:) y luego la pista. Una palabra por línea.</p>
+                                            {errCw.words && <div className="text-red-500 text-xs mt-1">{errCw.words}</div>}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <button type="submit" disabled={procCw} className="bg-brand-500 text-dark-700 px-6 py-2 rounded shadow hover:bg-brand-400 text-sm font-bold transition disabled:opacity-50">
+                                                {procCw ? 'Calculando cuadricula...' : ' Generar Crucigrama'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                                {/* PESTAÑA 4: Formulario Creador de Drag the Words */}
+                                {creationMode === 'dragwords' && (
+                                    <form onSubmit={submitDragWords} className="flex flex-col gap-4 animate-fade-in-up">
+                                        <div>
+                                            <input type="text" placeholder="Título (Ej: Completar Oraciones)" value={dwData.title} onChange={e => setDwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                            {errDw.title && <div className="text-red-500 text-xs mt-1">{errDw.title}</div>}
+                                        </div>
+                                        <div>
+                                            <textarea
+                                                placeholder="Escribe tu texto y pon las palabras a arrastrar entre asteriscos (*).&#10;Ejemplo:&#10;El *perro* es el mejor amigo del *hombre*."
+                                                value={dwData.text}
+                                                onChange={e => setDwData('text', e.target.value)}
+                                                className="rounded-md border-gray-300 px-4 py-2 text-sm w-full h-32 focus:ring-brand-500 focus:border-brand-500"
+                                            ></textarea>
+                                            <p className="text-xs text-gray-500 mt-1">Usa asteriscos para marcar las palabras ocultas. Las palabras se revolverán automáticamente.</p>
+                                            {errDw.text && <div className="text-red-500 text-xs mt-1">{errDw.text}</div>}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <button type="submit" disabled={procDw} className="bg-brand-500 text-dark-700 px-6 py-2 rounded shadow hover:bg-brand-400 text-sm font-bold transition disabled:opacity-50">
+                                                {procDw ? 'Generando...' : ' Generar Actividad'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                                {/* PESTAÑA 5: Formulario Creador de Fill the Blanks */}
+                                {creationMode === 'blanks' && (
+                                    <form onSubmit={submitBlanks} className="flex flex-col gap-4 animate-fade-in-up">
+                                        <div>
+                                            <input type="text" placeholder="Título (Ej: Completar Oraciones Históricas)" value={fbData.title} onChange={e => setFbData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                            {errFb.title && <div className="text-red-500 text-xs mt-1">{errFb.title}</div>}
+                                        </div>
+                                        <div>
+                                            <textarea
+                                                placeholder="Escribe tu texto y pon las palabras ocultas entre asteriscos (*).&#10;Ejemplo:&#10;La capital de Francia es *París* y la de España es *Madrid*."
+                                                value={fbData.text}
+                                                onChange={e => setFbData('text', e.target.value)}
+                                                className="rounded-md border-gray-300 px-4 py-2 text-sm w-full h-32 focus:ring-brand-500 focus:border-brand-500"
+                                            ></textarea>
+                                            <p className="text-xs text-gray-500 mt-1">Usa asteriscos para crear los huecos que el alumno deberá escribir con su teclado.</p>
+                                            {errFb.text && <div className="text-red-500 text-xs mt-1">{errFb.text}</div>}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <button type="submit" disabled={procFb} className="bg-brand-500 text-dark-700 px-6 py-2 rounded shadow hover:bg-brand-400 text-sm font-bold transition disabled:opacity-50">
+                                                {procFb ? 'Generando...' : '📝 Generar Actividad'}
                                             </button>
                                         </div>
                                     </form>
@@ -222,15 +357,61 @@ export default function TeacherShow({ auth, classroom, activities }) {
 
                         {/* COLUMNA DERECHA: Lista de Alumnos */}
                         <div className="md:col-span-1">
-                            <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-t-4 border-dark-500">
-                                <h3 className="text-lg font-bold mb-4 text-dark-700">Alumnos Inscritos</h3>
-                                <p className="text-gray-500 text-sm">Comparte el código <strong className="text-brand-600">{classroom.access_code}</strong> para que tus alumnos se unan.</p>
+                            <div className="bg-white shadow-sm sm:rounded-xl p-6 border-t-4 border-dark-500 sticky top-6">
+                                <h3 className="text-lg font-bold mb-2 text-dark-700 flex items-center justify-between">
+                                    <span>👥 Alumnos Inscritos</span>
+                                    <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
+                                        {classroom.students ? classroom.students.length : 0}
+                                    </span>
+                                </h3>
+
+                                <p className="text-gray-500 text-sm mb-4 pb-4 border-b border-gray-100">
+                                    Código de clase: <strong className="text-brand-600 bg-brand-50 px-2 py-1 rounded select-all">{classroom.access_code}</strong>
+                                </p>
+
+                                {/* --- LISTA DINÁMICA DE ALUMNOS --- */}
+                                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                                    {!classroom.students || classroom.students.length === 0 ? (
+                                        <div className="text-center py-6 text-gray-400 italic text-sm">
+                                            Aún no hay alumnos unidos a esta clase.
+                                        </div>
+                                    ) : (
+                                        classroom.students.map(student => (
+                                            <div key={student.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors shadow-sm">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="bg-indigo-100 text-indigo-700 rounded-full min-w-[32px] h-8 flex items-center justify-center font-bold text-sm">
+                                                        {student.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="truncate">
+                                                        <p className="text-sm font-bold text-gray-700 truncate" title={student.name}>{student.name}</p>
+                                                        <p className="text-xs text-gray-500 truncate" title={student.email}>{student.email}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Botón de Expulsar */}
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm(`¿Estás seguro de eliminar a ${student.name} de la clase? Perderá el acceso a las actividades.`)) {
+                                                            router.delete(route('teacher.classrooms.students.destroy', [classroom.id, student.id]));
+                                                        }
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition flex-shrink-0"
+                                                    title="Eliminar alumno"
+                                                >
+                                                    ❌
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                {/* --------------------------------- */}
                             </div>
                         </div>
 
-                    </div>
-                </div>
-            </div>
+                    </div> {/* Cierra el grid de 3 columnas */}
+                </div> {/* Cierra el max-w-7xl */}
+            </div> {/* 🌟 ¡ESTE ES EL QUE FALTABA! Cierra el py-12 🌟 */}
+
         </AuthenticatedLayout>
     );
 }
