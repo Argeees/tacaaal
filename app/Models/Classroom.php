@@ -33,6 +33,11 @@ class Classroom extends Model
     {
         return $this->hasMany(Activity::class);
     }
+    // Una clase tiene muchas tareas asignadas
+    public function assignments()
+    {
+        return $this->hasMany(Assignment::class);
+    }
     
 
 }

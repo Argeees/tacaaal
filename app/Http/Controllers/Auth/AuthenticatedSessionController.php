@@ -27,12 +27,19 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(\App\Http\Requests\Auth\LoginRequest $request): \Illuminate\Http\RedirectResponse
     {
         $request->authenticate();
 
         $request->session()->regenerate();
 
+        // --- NUEVA LÓGICA DE REDIRECCIÓN ---
+        // Si el usuario que acaba de entrar es el Admin, lo mandamos a su panel
+        if ($request->user()->role === 'admin') {
+            return redirect()->route('admin.approvals');
+        }
+
+        // Si es maestro o alumno, lo mandamos al Dashboard normal
         return redirect()->intended(route('dashboard', absolute: false));
     }
 

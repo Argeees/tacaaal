@@ -5,7 +5,7 @@ use App\Http\Controllers\ClassroomController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth; // <--- Agregamos esto para usar Auth
+use Illuminate\Support\Facades\Auth; 
 use Inertia\Inertia;
 
 // --- RUTA DE BIENVENIDA ---
@@ -18,16 +18,14 @@ Route::get('/', function () {
     ]);
 });
 
-// --- DASHBOARD INTELIGENTE (SEMÁFORO) 🚦 ---
-// Esta ruta decide a dónde va el usuario según su rol
+// --- DASHBOARD INTELIGENTE (SEMÁFORO)  ---
 Route::get('/dashboard', function () {
     $user = Auth::user();
 
     if ($user->role === 'teacher') {
-        return redirect()->route('teacher.dashboard');
+        return redirect()->route('teacher.classrooms.index');
     }
 
-    // Si no es maestro, va al panel de estudiante
     return redirect()->route('student.dashboard');
 
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -37,79 +35,55 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
 
     // ==========================================
-    // 👨‍🏫 RUTAS PARA MAESTROS (Teacher)
+    // RUTAS PARA MAESTROS (Teacher)
     // ==========================================
-    Route::prefix('teacher')->name('teacher.')->group(function () {
+    Route::middleware(['auth', \App\Http\Middleware\IsTeacher::class])->prefix('teacher')->name('teacher.')->group(function () {        
         
-        // Panel principal del maestro
-        Route::get('/dashboard', [ClassroomController::class, 'index'])->name('dashboard');
-        
-        // 👇 ESTAS DOS RUTAS SE HABÍAN BORRADO 👇
-        // Guardar clase nueva
+        Route::get('/classrooms', [ClassroomController::class, 'index'])->name('classrooms.index');
         Route::post('/classrooms', [ClassroomController::class, 'store'])->name('classrooms.store');
-        // Ver una clase (Vista Maestro)
         Route::get('/classrooms/{classroom}', [ClassroomController::class, 'show'])->name('classrooms.show');
-        // 👆 --------------------------------- 👆
-
-        // Eliminar clase
         Route::delete('/classrooms/{classroom}', [ClassroomController::class, 'destroy'])->name('classrooms.destroy');
 
-        // Guardar actividad nueva (.h5p)
         Route::post('/classrooms/{classroom}/activities', [ClassroomController::class, 'storeActivity'])->name('activities.store');
-        
-        // Ruta para generar Sopa de Letras (NUEVA)
         Route::post('/classrooms/{classroom}/wordsearch', [ClassroomController::class, 'storeWordSearch'])->name('activities.wordsearch');
-        
-        // Ruta para generar Sopa de Letras
-        Route::post('/classrooms/{classroom}/wordsearch', [ClassroomController::class, 'storeWordSearch'])->name('activities.wordsearch');
-        
-        // Ruta para generar Crucigramas (NUEVA)
         Route::post('/classrooms/{classroom}/crossword', [ClassroomController::class, 'storeCrossword'])->name('activities.crossword');
-        // Ruta para generar Drag the Words (NUEVA)
         Route::post('/classrooms/{classroom}/dragwords', [ClassroomController::class, 'storeDragWords'])->name('activities.dragwords');
-        // Ruta para generar Fill in the Blanks (NUEVA)
         Route::post('/classrooms/{classroom}/blanks', [ClassroomController::class, 'storeBlanks'])->name('activities.blanks');
-        // Jugar actividad (Modo Vista Previa)
-        Route::get('/classrooms/{classroom}/activities/{activity}', [ClassroomController::class, 'play'])->name('activities.play');
-
-        // Ver calificaciones (Gradebook)
-        Route::get('/classrooms/{classroom}/grades', [ClassroomController::class, 'grades'])->name('classrooms.grades');
         
-        // Borrar actividad
+        Route::get('/classrooms/{classroom}/activities/{activity}', [ClassroomController::class, 'play'])->name('activities.play');
+        Route::get('/classrooms/{classroom}/grades', [ClassroomController::class, 'grades'])->name('classrooms.grades');
         Route::delete('/activities/{activity}', [ClassroomController::class, 'destroyActivity'])->name('activities.destroy');
-        // Ruta para eliminar a un alumno de la clase
         Route::delete('/classrooms/{classroom}/students/{student}', [ClassroomController::class, 'removeStudent'])->name('classrooms.students.destroy');
+        
+        Route::post('/classrooms/{classroom}/assignments', [\App\Http\Controllers\AssignmentController::class, 'store'])->name('assignments.store');
+        //Route::patch('/submissions/{submission}/grade', [\App\Http\Controllers\AssignmentController::class, 'grade'])->name('submissions.grade');
     });
 
-
     // ==========================================
-    // 👨‍🎓 RUTAS PARA ESTUDIANTES (Student)
+    // RUTAS PARA ESTUDIANTES (Student)
     // ==========================================
     Route::middleware('verified')->prefix('student')->name('student.')->group(function () {
-        
-        // Dashboard del alumno
         Route::get('/dashboard', [StudentController::class, 'index'])->name('dashboard');
-        
-        // Formulario "Unirse a clase"
         Route::post('/join', [StudentController::class, 'join'])->name('join');
-        
-        // Ver una clase (Vista Alumno)
         Route::get('/classrooms/{classroom}', [StudentController::class, 'show'])->name('classrooms.show');
-        
-        // Jugar actividad (Modo Evaluación)
         Route::get('/classrooms/{classroom}/activities/{activity}', [StudentController::class, 'play'])->name('activities.play');
-        
-        // Guardar calificación (Invisible)
         Route::post('/classrooms/{classroom}/activities/{activity}/grade', [StudentController::class, 'storeGrade'])->name('grades.store');
     });
+
+    // ==========================================
+    // RUTAS COMPARTIDAS (Sin prefijo de nombre)
+    // ==========================================
+    // Alumno entrega su enlace
+    Route::post('/assignments/{assignment}/submit', [\App\Http\Controllers\AssignmentController::class, 'submitLink'])->name('assignments.submit');
+    // Maestro califica una entrega
+    Route::patch('/submissions/{submission}/grade', [\App\Http\Controllers\AssignmentController::class, 'grade'])->name('submissions.grade');
+
+
     // ==========================================
     // RUTAS EXCLUSIVAS DEL ADMINISTRADOR
     // ==========================================
     Route::middleware(['auth', \App\Http\Middleware\IsAdmin::class])->prefix('admin')->group(function () {
-        // Panel para ver solicitudes pendientes
         Route::get('/approvals', [\App\Http\Controllers\ApprovalController::class, 'index'])->name('admin.approvals');
-    
-        // Ruta para aprobar y asignar rol
         Route::patch('/approvals/{user}', [\App\Http\Controllers\ApprovalController::class, 'approve'])->name('admin.approve');
     });
 

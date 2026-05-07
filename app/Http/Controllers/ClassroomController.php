@@ -47,17 +47,23 @@ class ClassroomController extends Controller
     }
 
     // Muestra una clase específica y sus actividades
+    // Muestra una clase específica y sus actividades
+// Muestra una clase específica y sus actividades (VISTA MAESTRO)
     public function show(Classroom $classroom)
     {
-        if ($classroom->teacher_id !== Auth::id()) {
+        // 👇 AQUÍ ES DONDE DEBE DECIR != EN LUGAR DE !== 👇
+        if ($classroom->teacher_id != Auth::id()) {
             abort(403, 'No tienes permiso para ver esta clase.');
         }
-        $classroom->load('students');
+        
+        // Cargamos la clase con los alumnos y tareas
+        $classroom->load(['students', 'assignments.submissions.user']);
+        
         // 1. Buscamos las actividades de ESTA clase en la base de datos
-        $activities = Activity::where('classroom_id', $classroom->id)->get();
+        $activities = \App\Models\Activity::where('classroom_id', $classroom->id)->get();
 
         // 2. Se las enviamos a la vista
-        return Inertia::render('Teacher/Show', [
+        return \Inertia\Inertia::render('Teacher/Show', [
             'classroom' => $classroom,
             'activities' => $activities 
         ]);
@@ -138,16 +144,17 @@ class ClassroomController extends Controller
     // Vista de Calificaciones (Gradebook)
     public function grades(Classroom $classroom)
     {
-        // 1. Seguridad: Solo el dueño de la clase puede ver esto
-        if ($classroom->teacher_id !== Auth::id()) {
+        if ($classroom->teacher_id != Auth::id()) {
             abort(403, 'No tienes permiso para ver estas calificaciones.');
         }
 
-        // 2. Obtenemos todas las actividades de la clase (para las columnas de la tabla)
+        // 1. Obtenemos las actividades H5P
         $activities = $classroom->activities;
 
-        // 3. Obtenemos los alumnos y "cargamos" sus notas (Eager Loading)
-        // Esto es muy eficiente: hace solo 2 consultas a la BD en lugar de 100
+        // 2. 👇 NUEVO: Obtenemos las tareas de link y cargamos sus entregas 👇
+        $assignments = $classroom->assignments()->with('submissions')->get();
+
+        // 3. Obtenemos a los alumnos y sus calificaciones de H5P
         $students = $classroom->students()->with(['grades' => function($query) use ($activities) {
             $query->whereIn('activity_id', $activities->pluck('id'));
         }])->get();
@@ -155,6 +162,7 @@ class ClassroomController extends Controller
         return Inertia::render('Teacher/Grades', [
             'classroom' => $classroom,
             'activities' => $activities,
+            'assignments' => $assignments, // Mandamos las tareas a React
             'students' => $students
         ]);
     }

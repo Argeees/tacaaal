@@ -17,7 +17,6 @@ class StudentController extends Controller
         $user = Auth::user();
         
         // Obtenemos las clases donde el usuario está inscrito
-        // (Usamos la relación 'classrooms' que creamos en el modelo User)
         $classrooms = $user->classrooms()->get();
 
         return Inertia::render('Student/Dashboard', [
@@ -32,7 +31,7 @@ class StudentController extends Controller
             'access_code' => 'required|string|size:6',
         ]);
 
-        // Buscamos la clase por el código (ignorando mayúsculas/minúsculas)
+        // Buscamos la clase por el código
         $classroom = Classroom::where('access_code', strtoupper($request->access_code))->first();
 
         if (!$classroom) {
@@ -42,19 +41,19 @@ class StudentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Validar si ya está inscrito para no duplicar
+        // Validar si ya está inscrito
         if ($user->classrooms()->where('classroom_id', $classroom->id)->exists()) {
             return back()->withErrors(['access_code' => 'Ya estás inscrito en esta clase.']);
         }
 
-        // ¡Inscripción exitosa! Guardamos en la tabla pivote
+        // Inscripción exitosa
         $user->classrooms()->attach($classroom->id);
 
         return redirect()->back()->with('success', '¡Te has unido a la clase correctamente!');
     }
     
     // 3. Ver una clase por dentro (como estudiante)
-public function show(Classroom $classroom)
+    public function show(Classroom $classroom)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -63,7 +62,13 @@ public function show(Classroom $classroom)
             abort(403, 'No estás inscrito en esta clase.');
         }
 
-        // --- CAMBIO AQUÍ ---
+        // 👇 CORRECCIÓN: Cargar tareas y SOLO la entrega de este alumno específico
+        $classroom->load(['assignments' => function ($query) use ($user) {
+            $query->with(['submissions' => function ($subQuery) use ($user) {
+                $subQuery->where('user_id', $user->id);
+            }]);
+        }]);
+
         // Cargamos las actividades Y ADEMÁS filtramos la calificación de ESTE usuario
         $activities = $classroom->activities()
             ->with(['grades' => function($query) use ($user) {
@@ -71,10 +76,9 @@ public function show(Classroom $classroom)
             }])
             ->get();
             
-        // Transformamos los datos para facilitar el uso en React
-        // (Movemos la nota "hacia afuera" para que sea fácil leerla)
+        // Transformamos los datos
         $activities->transform(function ($activity) {
-            $activity->my_grade = $activity->grades->first(); // Sacamos la primera (y única) nota
+            $activity->my_grade = $activity->grades->first(); 
             return $activity;
         });
 
@@ -83,35 +87,41 @@ public function show(Classroom $classroom)
             'activities' => $activities
         ]);
     }
+
     // 4. Jugar una actividad (Modo Alumno)
     public function play(Classroom $classroom, \App\Models\Activity $activity)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // 1. Seguridad: Verificar que el alumno esté inscrito
         if (!$user->classrooms()->where('classroom_id', $classroom->id)->exists()) {
             abort(403, 'No estás inscrito en esta clase.');
         }
 
-        // 2. Seguridad: Verificar que la actividad sea de esta clase
         if ($activity->classroom_id !== $classroom->id) {
             abort(404);
         }
 
-        // 3. Renderizar el MISMO Player que usa el maestro
-        // (La vista Player.jsx ya sabe manejar usuarios, así que funcionará igual)
+        // 🚨 CANDADO 1: Si ya tiene calificación, lo regresamos al salón
+        $yaJugo = Grade::where('user_id', $user->id)
+                       ->where('activity_id', $activity->id)
+                       ->exists();
+                       
+        if ($yaJugo) {
+            return redirect()->route('student.classrooms.show', $classroom->id)
+                             ->withErrors(['error' => 'Ya has completado esta actividad y no puedes repetirla.']);
+        }
+
         return Inertia::render('Teacher/Player', [
             'classroom' => $classroom,
             'activity' => $activity,
-            // Aquí en el futuro pasaremos si ya la completó o su calificación anterior
             'gradeUrl' => route('student.grades.store', [$classroom->id, $activity->id]),
         ]);
     }
-    // 5. Guardar la calificación (Recibida desde React)
+
+    // 5. Guardar la calificación
     public function storeGrade(Request $request, Classroom $classroom, \App\Models\Activity $activity)
     {
-        // Validamos que vengan los datos
         $request->validate([
             'score' => 'required|integer',
             'max_score' => 'required|integer',
@@ -120,18 +130,23 @@ public function show(Classroom $classroom)
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Guardamos o actualizamos la nota
-        // (Si ya jugó antes, actualizamos su nota. Si es la primera vez, la creamos)
-        \App\Models\Grade::updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'activity_id' => $activity->id,
-            ],
-            [
-                'score' => $request->score,
-                'max_score' => $request->max_score,
-            ]
-        );
+        // 🚨 CANDADO 2: Verificamos si ya existe una nota en la base de datos
+        $notaExistente = Grade::where('user_id', $user->id)
+                              ->where('activity_id', $activity->id)
+                              ->first();
+
+        // Si ya hay nota, ignoramos este intento y regresamos error
+        if ($notaExistente) {
+            return back()->withErrors(['error' => 'Ya tienes calificación en esta actividad. No se puede sobrescribir.']);
+        }
+
+        // Si es su primera vez, creamos el registro
+        Grade::create([
+            'user_id' => $user->id,
+            'activity_id' => $activity->id,
+            'score' => $request->score,
+            'max_score' => $request->max_score,
+        ]);
 
         return back()->with('success', '¡Calificación guardada!');
     }

@@ -24,12 +24,9 @@ export default function AuthenticatedLayout({ header, children }) {
                             </div>
 
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                {/* Opción para MAESTROS (Solo se ve si user.role es 'teacher') */}
-                                {user.role === 'teacher' && (
-                                    <NavLink
-                                        href={route('teacher.dashboard')}
-                                        active={route().current('teacher.dashboard')}
-                                    >
+                                {/* --- BOTÓN EXCLUSIVO PARA MAESTROS --- */}
+                                {(user.role === 'teacher' || user.role === 'admin') && (
+                                    <NavLink href={route('teacher.classrooms.index')} active={route().current('teacher.*')}>
                                         👨‍🏫 Panel de Maestro
                                     </NavLink>
                                 )}

@@ -1,6 +1,6 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
-import { useState } from 'react'; // <--- IMPORTANTE: Agregamos useState
+import { useState } from 'react';
 
 export default function TeacherShow({ auth, classroom, activities }) {
 
@@ -36,7 +36,7 @@ export default function TeacherShow({ auth, classroom, activities }) {
     // --- FORMULARIO 4: DRAG THE WORDS ---
     const { data: dwData, setData: setDwData, post: postDw, processing: procDw, reset: resetDw, errors: errDw } = useForm({
         title: '',
-        text: '', // Aquí guardaremos el texto con asteriscos
+        text: '',
     });
 
     const submitDragWords = (e) => {
@@ -79,7 +79,7 @@ export default function TeacherShow({ auth, classroom, activities }) {
         postWs(route('teacher.activities.wordsearch', classroom.id), {
             onSuccess: () => {
                 resetWs();
-                setCreationMode('upload'); // Regresa a la pestaña principal al terminar
+                setCreationMode('upload');
             },
         });
     };
@@ -115,14 +115,141 @@ export default function TeacherShow({ auth, classroom, activities }) {
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
                     {/* Botón para regresar */}
-                    <Link href={route('teacher.dashboard')} className="text-gray-500 hover:text-gray-700 mb-4 inline-block font-medium">
+                    <Link href={route('teacher.classrooms.index')} className="text-gray-500 hover:text-gray-700 mb-4 inline-block font-medium">
                         &larr; Volver al tablero
                     </Link>
 
+                    {/* ======================================================== */}
+                    {/* SECCIÓN NUEVA: TAREAS CON ENLACE O ARCHIVO */}
+                    {/* ======================================================== */}
+                    <div className="mb-10 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                Tareas y Entregas Externas
+                            </h2>
+                        </div>
+
+                        {/* Formulario rápido para crear tareas (Solo Maestros) */}
+                        {(auth.user.role === 'teacher' || auth.user.role === 'admin') && (
+                            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6">
+                                <h3 className="font-bold text-indigo-900 mb-3 text-sm">➕ Publicar Nueva Tarea (Para recibir Links o Archivos)</h3>
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    router.post(route('teacher.assignments.store', classroom.id), {
+                                        title: formData.get('title'),
+                                        instructions: formData.get('instructions')
+                                        due_date: formData.get('due_date')
+                                    }, {
+                                        preserveScroll: true,
+                                        onSuccess: () => e.target.reset()
+                                    });
+                                }} className="flex flex-col md:flex-row gap-3 items-start">
+                                    <input type="text" name="title" required placeholder="Título (Ej. Ensayo en PDF)" className="border-gray-300 rounded-md text-sm md:w-1/3" />
+                                    <textarea name="instructions" required placeholder="Instrucciones detalladas..." className="border-gray-300 rounded-md text-sm md:w-2/3 h-10 resize-none"></textarea>
+                                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm transition shrink-0 whitespace-nowrap">
+                                        Publicar Tarea
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Lista de Tareas y Panel de Calificación Inline */}
+                        {classroom.assignments?.length === 0 ? (
+                            <p className="text-gray-500 text-sm italic text-center bg-gray-50 py-4 rounded-md border border-dashed border-gray-300">
+                                No hay tareas asignadas todavía.
+                            </p>
+                        ) : (
+                            <div className="space-y-6 mt-4">
+                                {classroom.assignments?.map(assignment => (
+                                    <div key={assignment.id} className="bg-blue-50/30 border border-blue-100 p-5 rounded-lg">
+                                        <h4 className="font-bold text-gray-800 flex items-center gap-2 mb-2">
+                                            📝 {assignment.title}
+                                        </h4>
+                                        <p className="text-sm text-gray-600 mb-4">{assignment.instructions}</p>
+
+                                        <div className="mt-4 border-t border-gray-200 pt-4 bg-white rounded-md p-4 shadow-sm">
+                                            <h5 className="font-bold text-sm text-gray-700 mb-3">
+                                                Entregas de los alumnos ({assignment.submissions?.length || 0})
+                                            </h5>
+
+                                            {!assignment.submissions || assignment.submissions.length === 0 ? (
+                                                <p className="text-xs text-gray-400 italic">Nadie ha entregado esta tarea aún.</p>
+                                            ) : (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm text-left text-gray-500">
+                                                        <thead className="text-xs text-gray-400 uppercase border-b">
+                                                            <tr>
+                                                                <th className="pb-2 font-medium">Alumno</th>
+                                                                <th className="pb-2 font-medium">Entregable</th>
+                                                                <th className="pb-2 font-medium text-right pr-4">Calificación (0-10)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {assignment.submissions.map(sub => (
+                                                                <tr key={sub.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                                                                    <td className="py-3 font-medium text-gray-900">{sub.user?.name || 'Alumno'}</td>
+                                                                    <td className="py-3">
+                                                                        {/* 👇 LÓGICA DE ARCHIVOS VS ENLACES 👇 */}
+                                                                        {sub.file_path ? (
+                                                                            <a
+                                                                                href={`/storage/${sub.file_path}`}
+                                                                                target="_blank"
+                                                                                download
+                                                                                className="text-indigo-600 hover:text-indigo-900 font-bold flex items-center gap-1"
+                                                                            >
+                                                                                📄 Descargar Archivo
+                                                                            </a>
+                                                                        ) : sub.link_url ? (
+                                                                            <a
+                                                                                href={sub.link_url}
+                                                                                target="_blank"
+                                                                                className="text-blue-600 hover:text-blue-900 font-bold flex items-center gap-1"
+                                                                            >
+                                                                                🔗 Abrir Enlace
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span className="text-gray-400 italic">Sin archivo</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-3 text-right pr-2">
+                                                                        <form onSubmit={(e) => {
+                                                                            e.preventDefault();
+                                                                            router.patch(route('submissions.grade', sub.id), {
+                                                                                grade: e.target.grade.value
+                                                                            }, { preserveScroll: true });
+                                                                        }} className="flex justify-end gap-2 items-center">
+                                                                            <input
+                                                                                type="number"
+                                                                                name="grade"
+                                                                                defaultValue={sub.grade}
+                                                                                min="0" max="10" step="0.1"
+                                                                                className="w-20 border-gray-300 rounded px-2 py-1 text-sm text-center focus:ring-indigo-500 focus:border-indigo-500"
+                                                                            />
+                                                                            <button type="submit" className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-300 transition font-bold">
+                                                                                Guardar
+                                                                            </button>
+                                                                        </form>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    {/* ======================================================== */}
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                        {/* COLUMNA IZQUIERDA: Formularios y Lista de Actividades */}
+                        {/* COLUMNA IZQUIERDA: Formularios y Lista de Actividades H5P */}
                         <div className="md:col-span-2">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Actividades Interactivas </h2>
 
                             {/* ========================================== */}
                             {/* 🛠️ PANEL DE CREACIÓN MULTI-OPCIÓN          */}
@@ -130,34 +257,34 @@ export default function TeacherShow({ auth, classroom, activities }) {
                             <div className="bg-white p-6 rounded-xl shadow-sm border-t-4 border-brand-500 mb-6">
 
                                 {/* Pestañas */}
-                                <div className="flex gap-6 border-b border-gray-200 mb-5">
+                                <div className="flex gap-6 border-b border-gray-200 mb-5 overflow-x-auto">
                                     <button
                                         onClick={() => setCreationMode('upload')}
-                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'upload' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                        className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap ${creationMode === 'upload' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
                                         Subir Archivo .h5p
                                     </button>
                                     <button
                                         onClick={() => setCreationMode('wordsearch')}
-                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'wordsearch' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                        className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap ${creationMode === 'wordsearch' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
                                         Crear Sopa de Letras
                                     </button>
                                     <button
                                         onClick={() => setCreationMode('crossword')}
-                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'crossword' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                        className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap ${creationMode === 'crossword' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
                                         Crear Crucigrama
                                     </button>
                                     <button
                                         onClick={() => setCreationMode('dragwords')}
-                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'dragwords' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                        className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap ${creationMode === 'dragwords' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
                                         Arrastrar Palabras
                                     </button>
                                     <button
                                         onClick={() => setCreationMode('blanks')}
-                                        className={`pb-3 font-bold text-sm transition-colors ${creationMode === 'blanks' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
+                                        className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap ${creationMode === 'blanks' ? 'text-brand-600 border-b-2 border-brand-600' : 'text-gray-400 hover:text-gray-700'}`}
                                     >
                                         Rellenar Huecos
                                     </button>
@@ -302,11 +429,11 @@ export default function TeacherShow({ auth, classroom, activities }) {
                             </div>
                             {/* ========================================== */}
 
-                            {/* LISTA REAL DE ACTIVIDADES */}
+                            {/* LISTA REAL DE ACTIVIDADES H5P */}
                             <div className="space-y-4">
                                 {activities.length === 0 ? (
                                     <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
-                                        <p className="text-gray-500">No hay ejercicios todavía.</p>
+                                        <p className="text-gray-500">No hay ejercicios interactivos todavía.</p>
                                         <p className="text-sm text-gray-400">Usa el panel de arriba para crear o subir uno.</p>
                                     </div>
                                 ) : (
@@ -382,9 +509,11 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                                     <div className="bg-indigo-100 text-indigo-700 rounded-full min-w-[32px] h-8 flex items-center justify-center font-bold text-sm">
                                                         {student.name.charAt(0).toUpperCase()}
                                                     </div>
-                                                    <div className="truncate">
-                                                        <p className="text-sm font-bold text-gray-700 truncate" title={student.name}>{student.name}</p>
-                                                        <p className="text-xs text-gray-500 truncate" title={student.email}>{student.email}</p>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-gray-900">{student.name}</span>
+                                                        <span className="text-xs text-gray-500">
+                                                            <span className="font-bold text-indigo-600">Exp: {student.expediente || 'S/N'}</span> • {student.email}
+                                                        </span>
                                                     </div>
                                                 </div>
 
@@ -408,9 +537,9 @@ export default function TeacherShow({ auth, classroom, activities }) {
                             </div>
                         </div>
 
-                    </div> {/* Cierra el grid de 3 columnas */}
-                </div> {/* Cierra el max-w-7xl */}
-            </div> {/* 🌟 ¡ESTE ES EL QUE FALTABA! Cierra el py-12 🌟 */}
+                    </div>
+                </div>
+            </div>
 
         </AuthenticatedLayout>
     );
