@@ -10,12 +10,12 @@ export default function ParticleBackground() {
         let width, height;
         let particles = [];
 
-        // 🎛️ AQUÍ ESTÁN TUS VALORES ELEGIDOS:
+        // 🎛️ CONFIGURACIÓN BASE
+        // Nota: Quitamos 'nodes' de aquí porque lo calcularemos dinámicamente más abajo
         const config = {
-            nodes: 150,            // Número de Nodos
             speed: 0.2,           // Velocidad de Deriva
-            linkDistance: 300,     // Límite de Enlace (px)
-            color: '107, 107, 107'  // RGB del color 
+            linkDistance: 300,    // Límite de Enlace (px)
+            color: '107, 107, 107' // RGB del color 
         };
 
         const resize = () => {
@@ -52,9 +52,15 @@ export default function ParticleBackground() {
             resize();
             window.addEventListener('resize', resize);
 
+            // 👇 NUEVO LÓGICA: Detectar tamaño de pantalla para el número de nodos
+            // Si el ancho es menor a 768px (pantallas de celular), ponemos 25 nodos.
+            // Si es mayor (tabletas/PC), usamos 150 nodos.
+            const isMobile = window.innerWidth < 768;
+            const totalNodes = isMobile ? 25 : 150;
+
             // Crear los nodos
             particles = [];
-            for (let i = 0; i < config.nodes; i++) {
+            for (let i = 0; i < totalNodes; i++) {
                 particles.push(new Particle());
             }
 

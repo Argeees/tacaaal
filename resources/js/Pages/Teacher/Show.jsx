@@ -138,7 +138,7 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                     const formData = new FormData(e.target);
                                     router.post(route('teacher.assignments.store', classroom.id), {
                                         title: formData.get('title'),
-                                        instructions: formData.get('instructions')
+                                        instructions: formData.get('instructions'),
                                         due_date: formData.get('due_date')
                                     }, {
                                         preserveScroll: true,

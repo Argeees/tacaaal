@@ -103,10 +103,11 @@ export default function Welcome({ auth }) {
                         <h2 className="text-center text-3xl font-bold text-dark-600 mb-12 drop-shadow-sm">Idiomas Disponibles</h2>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <LanguageCard title="Inglés" level="Niveles A1 - C1" flag="🇬🇧" />
-                            <LanguageCard title="Francés" level="Niveles A1 - B2" flag="🇫🇷" />
-                            <LanguageCard title="Italiano" level="Niveles A1 - B2" flag="🇮🇹" />
-                            <LanguageCard title="Alemán" level="Niveles A1 - B1" flag="🇩🇪" />
+                            {/* 👇 AQUI CAMBIAMOS 'flag' por 'flagCode' 👇 */}
+                            <LanguageCard title="Inglés" level="Niveles A1 - C1" flagCode="gb" />
+                            <LanguageCard title="Francés" level="Niveles A1 - B2" flagCode="fr" />
+                            <LanguageCard title="Italiano" level="Niveles A1 - B2" flagCode="it" />
+                            <LanguageCard title="Alemán" level="Niveles A1 - B1" flagCode="de" />
                         </div>
                     </div>
                 </section>
@@ -134,10 +135,17 @@ export default function Welcome({ auth }) {
 }
 
 // Componentes auxiliares
-function LanguageCard({ title, level, flag }) {
+function LanguageCard({ title, level, flagCode }) {
     return (
         <div className="bg-white/90 backdrop-blur-sm p-8 rounded-xl shadow-sm border border-gray-100 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">{flag}</div>
+            {/* 👇 Reemplazamos el emoji por la imagen del CDN 👇 */}
+            <div className="mb-4 flex justify-center group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">
+                <img
+                    src={`https://flagcdn.com/w80/${flagCode}.png`}
+                    alt={`Bandera de ${title}`}
+                    className="h-12 w-auto rounded-sm"
+                />
+            </div>
             <h3 className="text-xl font-bold text-dark-600 mb-2">{title}</h3>
             <p className="text-sm font-medium text-gray-500">{level}</p>
         </div>
