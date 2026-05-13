@@ -38,6 +38,11 @@ class Classroom extends Model
     {
         return $this->hasMany(Assignment::class);
     }
+    public function announcements()
+    {
+    // latest() los ordena para que el más nuevo salga hasta arriba
+    return $this->hasMany(Announcement::class)->latest(); 
+    }
     
 
 }

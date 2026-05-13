@@ -14,6 +14,24 @@ export default function Approvals({ auth, pendingUsers }) {
         }
     };
 
+    // ========================================================
+    // 🔥 FUNCIÓN DEL BOTÓN NUCLEAR (LIMPIEZA SEMESTRAL)
+    // ========================================================
+    const handleWipeData = () => {
+        if (window.confirm('🚨 ¡ADVERTENCIA EXTREMA! 🚨\n\nEstás a punto de ELIMINAR TODOS los alumnos, maestros, clases, tareas y calificaciones.\n\nEsta acción NO se puede deshacer. ¿Deseas continuar?')) {
+            const userInput = window.prompt('Para ejecutar la limpieza semestral, escribe en mayúsculas la palabra: CONFIRMAR');
+
+            if (userInput === 'CONFIRMAR') {
+                router.delete(route('admin.wipe-data'), {
+                    onSuccess: () => alert('✅ La limpieza se ha completado correctamente. Sistema listo para el nuevo semestre.'),
+                    onError: () => alert('❌ Hubo un error al intentar limpiar la base de datos.')
+                });
+            } else {
+                alert('Limpieza cancelada. La palabra clave no coincidía.');
+            }
+        }
+    };
+
     return (
         <AuthenticatedLayout
             user={auth.user}
@@ -24,6 +42,7 @@ export default function Approvals({ auth, pendingUsers }) {
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
+                    {/* TABLA DE APROBACIONES */}
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg border-t-4 border-indigo-600">
                         <div className="p-6 text-gray-900">
                             <h3 className="text-lg font-bold mb-4 flex items-center justify-between">
@@ -81,6 +100,24 @@ export default function Approvals({ auth, pendingUsers }) {
                                 </div>
                             )}
                         </div>
+                    </div>
+
+                    {/* ======================================================== */}
+                    {/* ZONA DE PELIGRO - LIMPIEZA SEMESTRAL */}
+                    {/* ======================================================== */}
+                    <div className="mt-12 p-6 bg-red-50 border border-red-200 rounded-xl shadow-sm">
+                        <h3 className="text-xl font-bold text-red-800 mb-2 flex items-center gap-2">
+                            ⚠️ Zona de Peligro: Fin de Semestre
+                        </h3>
+                        <p className="text-sm text-red-700 mb-4">
+                            Utiliza esta opción únicamente cada 6 meses para preparar la plataforma <strong>Tecaal</strong> para un nuevo ciclo escolar. Se borrarán permanentemente todos los maestros, alumnos, clases y actividades. Tu cuenta de Administrador se mantendrá intacta.
+                        </p>
+                        <button
+                            onClick={handleWipeData}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md shadow-sm transition-colors flex items-center gap-2"
+                        >
+                            ☢️ Iniciar Limpieza Semestral
+                        </button>
                     </div>
 
                 </div>

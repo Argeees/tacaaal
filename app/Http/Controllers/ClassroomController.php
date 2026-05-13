@@ -46,9 +46,7 @@ class ClassroomController extends Controller
         return redirect()->back();
     }
 
-    // Muestra una clase específica y sus actividades
-    // Muestra una clase específica y sus actividades
-// Muestra una clase específica y sus actividades (VISTA MAESTRO)
+    // Muestra una clase específica y sus actividades (VISTA MAESTRO)
     public function show(Classroom $classroom)
     {
         // 👇 AQUÍ ES DONDE DEBE DECIR != EN LUGAR DE !== 👇
@@ -57,7 +55,7 @@ class ClassroomController extends Controller
         }
         
         // Cargamos la clase con los alumnos y tareas
-        $classroom->load(['students', 'assignments.submissions.user']);
+        $classroom->load(['students', 'assignments.submissions.user', 'announcements']);
         
         // 1. Buscamos las actividades de ESTA clase en la base de datos
         $activities = \App\Models\Activity::where('classroom_id', $classroom->id)->get();
@@ -69,13 +67,14 @@ class ClassroomController extends Controller
         ]);
     }
 
-    // SUBIR ACTIVIDAD (CON LA CORRECCIÓN DE RUTA PÚBLICA)
+    // SUBIR ACTIVIDAD (CON LA CORRECCIÓN DE RUTA PÚBLICA Y FECHA)
     public function storeActivity(Request $request, Classroom $classroom)
     {
         // 1. Validar
         $request->validate([
             'title' => 'required|string|max:150',
             'h5p_file' => 'required|file|extensions:h5p,zip|max:50000', 
+            'due_date' => 'nullable|date', // <-- LÍNEA NUEVA
         ]);
 
         // 2. Guardar el archivo en la carpeta temporal (esto sigue igual)
@@ -88,6 +87,7 @@ class ClassroomController extends Controller
         $activity = Activity::create([
             'classroom_id' => $classroom->id,
             'title' => $request->title,
+            'due_date' => $request->due_date, // <-- LÍNEA NUEVA
             'h5p_type' => 'unknown',
             'h5p_parameters' => [], 
         ]);
@@ -141,6 +141,7 @@ class ClassroomController extends Controller
             'activity' => $activity
         ]);
     }
+    
     // Vista de Calificaciones (Gradebook)
     public function grades(Classroom $classroom)
     {
@@ -166,6 +167,7 @@ class ClassroomController extends Controller
             'students' => $students
         ]);
     }
+    
     // Eliminar una actividad
     public function destroyActivity(\App\Models\Activity $activity)
     {
@@ -174,22 +176,20 @@ class ClassroomController extends Controller
             abort(403, 'No tienes permiso para borrar esto.');
         }
 
-        // 2. (Opcional) Borrar los archivos del disco para no llenar basura
-        // Storage::deleteDirectory('public/h5p/' . $activity->id); 
-        // (Por ahora saltamos esto para no complicarte con permisos de carpetas)
-
         // 3. Borrar de la base de datos
         $activity->delete();
 
         return back()->with('success', 'Actividad eliminada correctamente.');
     }
+    
     // Generador Automático de Sopa de Letras
-public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
     {
         // 1. Validar
         $request->validate([
             'title' => 'required|string|max:255',
             'words' => 'required|string', 
+            'due_date' => 'nullable|date', // <-- LÍNEA NUEVA
         ]);
 
         // 2. Limpiar palabras
@@ -203,8 +203,8 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $activity->title = $request->title;
         $activity->h5p_type = 'H5P.FindTheWords'; 
         $activity->classroom_id = $classroom->id;
+        $activity->due_date = $request->due_date; // <-- LÍNEA NUEVA
         
-        // 👇 ESTA ES LA LÍNEA NUEVA QUE FALTA 👇
         $activity->h5p_parameters = json_encode(['title' => $request->title]); 
         
         $activity->save();
@@ -213,7 +213,6 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $activity->refresh();
 
         if (empty($activity->id)) {
-            // Si la BD falló en darnos el ID, cancelamos todo para evitar otro "derrame"
             $activity->delete();
             return back()->withErrors(['title' => 'Error de BD: No se pudo asignar un ID a la actividad.']);
         }
@@ -240,12 +239,17 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
 
         return back()->with('success', '¡Sopa de letras generada con éxito!');
     }
+    
     // =========================================================
     // MOTOR GENERADOR DE CRUCIGRAMAS
     // =========================================================
     public function storeCrossword(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
     {
-        $request->validate(['title' => 'required|string', 'words' => 'required|string']);
+        $request->validate([
+            'title' => 'required|string', 
+            'words' => 'required|string',
+            'due_date' => 'nullable|date', // <-- LÍNEA NUEVA
+        ]);
 
         // 1. Procesar el texto del maestro ("PALABRA: La pista")
         $lines = explode("\n", str_replace("\r", "", $request->words));
@@ -270,6 +274,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $activity->title = $request->title;
         $activity->h5p_type = 'H5P.Crossword'; 
         $activity->classroom_id = $classroom->id;
+        $activity->due_date = $request->due_date; // <-- LÍNEA NUEVA
         $activity->h5p_parameters = json_encode(['title' => $request->title]); 
         $activity->save();
 
@@ -370,6 +375,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $item['x'] = $x; $item['y'] = $y; $item['orientation'] = $orientation;
         return $item;
     }
+    
     // =========================================================
     // GENERADOR DE DRAG THE WORDS
     // =========================================================
@@ -379,6 +385,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $request->validate([
             'title' => 'required|string|max:255',
             'text' => 'required|string', // El texto que trae los *asteriscos*
+            'due_date' => 'nullable|date', // <-- LÍNEA NUEVA
         ]);
 
         // 2. Guardar en Base de Datos
@@ -386,6 +393,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $activity->title = $request->title;
         $activity->h5p_type = 'H5P.DragText'; // Tipo interno
         $activity->classroom_id = $classroom->id;
+        $activity->due_date = $request->due_date; // <-- LÍNEA NUEVA
         $activity->h5p_parameters = json_encode(['title' => $request->title]); 
         $activity->save();
 
@@ -416,6 +424,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
 
         return back()->with('success', '¡Actividad de arrastrar palabras generada!');
     }
+    
     // =========================================================
     // GENERADOR DE FILL IN THE BLANKS (RELLENAR HUECOS)
     // =========================================================
@@ -425,6 +434,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $request->validate([
             'title' => 'required|string|max:255',
             'text' => 'required|string', 
+            'due_date' => 'nullable|date', // <-- LÍNEA NUEVA
         ]);
 
         // 2. Guardar en Base de Datos
@@ -432,6 +442,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $activity->title = $request->title;
         $activity->h5p_type = 'H5P.Blanks'; 
         $activity->classroom_id = $classroom->id;
+        $activity->due_date = $request->due_date; // <-- LÍNEA NUEVA
         $activity->h5p_parameters = json_encode(['title' => $request->title]); 
         $activity->save();
 
@@ -461,6 +472,7 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
 
         return back()->with('success', '¡Actividad de rellenar huecos generada!');
     }
+    
     // =========================================================
     // EXPULSAR ALUMNO DE LA CLASE
     // =========================================================
@@ -470,5 +482,46 @@ public function storeWordSearch(\Illuminate\Http\Request $request, \App\Models\C
         $classroom->students()->detach($student->id);
 
         return back()->with('success', 'Alumno eliminado de la clase correctamente.');
+    }
+    // =========================================================
+    // GUARDAR Y BORRAR ANUNCIOS
+    // =========================================================
+    public function storeAnnouncement(\Illuminate\Http\Request $request, \App\Models\Classroom $classroom)
+    {
+        $request->validate([
+            'content' => 'required|string',
+            'file' => 'nullable|file|max:15000', // Máximo 15MB
+            'link_url' => 'nullable|url'
+        ]);
+
+        $path = null;
+        if ($request->hasFile('file')) {
+            $path = $request->file('file')->store('announcements', 'public');
+        }
+
+        \App\Models\Announcement::create([
+            'classroom_id' => $classroom->id,
+            'content' => $request->content,
+            'file_path' => $path,
+            'link_url' => $request->link_url
+        ]);
+
+        return back()->with('success', 'Anuncio publicado.');
+    }
+
+    public function destroyAnnouncement(\App\Models\Announcement $announcement)
+    {
+        // Seguridad: Solo el dueño de la clase puede borrar
+        if ($announcement->classroom->teacher_id !== \Illuminate\Support\Facades\Auth::id()) {
+            abort(403);
+        }
+
+        // Borrar el archivo físico si es que había uno
+        if ($announcement->file_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($announcement->file_path);
+        }
+        
+        $announcement->delete();
+        return back()->with('success', 'Anuncio eliminado.');
     }
 }

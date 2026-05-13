@@ -11,17 +11,20 @@ export default function TeacherShow({ auth, classroom, activities }) {
     const { data: uploadData, setData: setUploadData, post: postUpload, processing: procUpload, reset: resetUpload, errors: errUpload } = useForm({
         title: '',
         h5p_file: null,
+        due_date: '',
     });
 
     // --- FORMULARIO 2: CREAR SOPA DE LETRAS ---
     const { data: wsData, setData: setWsData, post: postWs, processing: procWs, reset: resetWs, errors: errWs } = useForm({
         title: '',
         words: '',
+        due_date: '',
     });
     // --- FORMULARIO 3: CREAR CRUCIGRAMA ---
     const { data: cwData, setData: setCwData, post: postCw, processing: procCw, reset: resetCw, errors: errCw } = useForm({
         title: '',
         words: '',
+        due_date: '',
     });
 
     const submitCrossword = (e) => {
@@ -37,6 +40,7 @@ export default function TeacherShow({ auth, classroom, activities }) {
     const { data: dwData, setData: setDwData, post: postDw, processing: procDw, reset: resetDw, errors: errDw } = useForm({
         title: '',
         text: '',
+        due_date: '',
     });
 
     const submitDragWords = (e) => {
@@ -52,6 +56,7 @@ export default function TeacherShow({ auth, classroom, activities }) {
     const { data: fbData, setData: setFbData, post: postFb, processing: procFb, reset: resetFb, errors: errFb } = useForm({
         title: '',
         text: '',
+        due_date: '',
     });
 
     const submitBlanks = (e) => {
@@ -120,6 +125,79 @@ export default function TeacherShow({ auth, classroom, activities }) {
                     </Link>
 
                     {/* ======================================================== */}
+                    {/* ZONA DE ANUNCIOS (TABLERO PRINCIPAL) */}
+                    {/* ======================================================== */}
+                    <div className="mb-10 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2 flex items-center gap-2">
+                            📢 Tablero de Anuncios
+                        </h2>
+
+                        {/* Formulario para publicar anuncio (Solo Maestro) */}
+                        {(auth.user.role === 'teacher' || auth.user.role === 'admin') && (
+                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+                                <h3 className="font-bold text-yellow-900 mb-3 text-sm">Escribir un mensaje para toda la clase</h3>
+                                <form onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.target);
+                                    router.post(route('teacher.announcements.store', classroom.id), formData, {
+                                        preserveScroll: true,
+                                        forceFormData: true,
+                                        onSuccess: () => e.target.reset()
+                                    });
+                                }} className="flex flex-col gap-3">
+
+                                    <textarea name="content" required placeholder="Ej. Para la actividad 14 favor de leer primero este PDF..." className="border-gray-300 rounded-md text-sm w-full h-20 resize-none focus:ring-yellow-500 focus:border-yellow-500"></textarea>
+
+                                    <div className="flex flex-col md:flex-row gap-3 w-full">
+                                        <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.png" className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-bold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200 w-full md:w-1/2 border border-gray-200 bg-white p-1" />
+                                        <input type="url" name="link_url" placeholder="Enlace opcional (Ej. https://youtube.com/...)" className="border-gray-300 rounded-md text-sm w-full md:w-1/2 focus:ring-yellow-500 focus:border-yellow-500" />
+                                    </div>
+
+                                    <button type="submit" className="bg-yellow-500 hover:bg-yellow-600 text-yellow-900 font-bold py-2 px-6 rounded-md text-sm transition self-end shadow-sm">
+                                        Publicar Anuncio
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Lista de Anuncios */}
+                        <div className="space-y-4">
+                            {!classroom.announcements || classroom.announcements.length === 0 ? (
+                                <p className="text-gray-500 text-sm italic text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">No hay anuncios publicados todavía.</p>
+                            ) : (
+                                classroom.announcements.map(announcement => (
+                                    <div key={announcement.id} className="bg-white border border-gray-200 p-5 rounded-lg shadow-sm relative hover:border-yellow-300 transition">
+                                        <p className="text-gray-800 whitespace-pre-wrap mb-4">{announcement.content}</p>
+
+                                        <div className="flex flex-wrap gap-4">
+                                            {announcement.file_path && (
+                                                <a href={`/storage/${announcement.file_path}`} target="_blank" download className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-md border border-indigo-100">
+                                                    📄 Descargar Archivo Adjunto
+                                                </a>
+                                            )}
+                                            {announcement.link_url && (
+                                                <a href={announcement.link_url} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+                                                    🔗 Abrir Enlace
+                                                </a>
+                                            )}
+                                        </div>
+
+                                        <p className="text-xs text-gray-400 mt-4 border-t pt-2 border-gray-100">Publicado el: {new Date(announcement.created_at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+
+                                        {/* Botón de borrar anuncio */}
+                                        <button onClick={() => {
+                                            if (confirm('¿Estás seguro de borrar este anuncio de forma permanente?')) router.delete(route('teacher.announcements.destroy', announcement.id))
+                                        }} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1.5 rounded transition" title="Borrar anuncio">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    {/* ======================================================== */}
+
+                    {/* ======================================================== */}
                     {/* SECCIÓN NUEVA: TAREAS CON ENLACE O ARCHIVO */}
                     {/* ======================================================== */}
                     <div className="mb-10 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -144,10 +222,16 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                         preserveScroll: true,
                                         onSuccess: () => e.target.reset()
                                     });
-                                }} className="flex flex-col md:flex-row gap-3 items-start">
-                                    <input type="text" name="title" required placeholder="Título (Ej. Ensayo en PDF)" className="border-gray-300 rounded-md text-sm md:w-1/3" />
-                                    <textarea name="instructions" required placeholder="Instrucciones detalladas..." className="border-gray-300 rounded-md text-sm md:w-2/3 h-10 resize-none"></textarea>
-                                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm transition shrink-0 whitespace-nowrap">
+                                }} className="flex flex-col gap-3 items-start">
+
+                                    <div className="flex flex-col md:flex-row gap-3 w-full">
+                                        <input type="text" name="title" required placeholder="Título (Ej. Ensayo en PDF)" className="border-gray-300 rounded-md text-sm md:w-1/2" />
+                                        <input type="datetime-local" name="due_date" required className="border-gray-300 rounded-md text-sm md:w-1/2 text-gray-600" />
+                                    </div>
+
+                                    <textarea name="instructions" required placeholder="Instrucciones detalladas..." className="border-gray-300 rounded-md text-sm w-full h-16 resize-none"></textarea>
+
+                                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm transition shrink-0 whitespace-nowrap self-end">
                                         Publicar Tarea
                                     </button>
                                 </form>
@@ -190,7 +274,6 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                                                 <tr key={sub.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                                                                     <td className="py-3 font-medium text-gray-900">{sub.user?.name || 'Alumno'}</td>
                                                                     <td className="py-3">
-                                                                        {/* 👇 LÓGICA DE ARCHIVOS VS ENLACES 👇 */}
                                                                         {sub.file_path ? (
                                                                             <a
                                                                                 href={`/storage/${sub.file_path}`}
@@ -293,15 +376,27 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                 {/* PESTAÑA 1: Formulario de Subida Rápida */}
                                 {creationMode === 'upload' && (
                                     <form onSubmit={submitUpload} className="flex flex-col gap-4 animate-fade-in-up">
-                                        <div>
-                                            <input
-                                                type="text"
-                                                placeholder="Título de la actividad"
-                                                value={uploadData.title}
-                                                onChange={e => setUploadData('title', e.target.value)}
-                                                className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
-                                            />
-                                            {errUpload.title && <div className="text-red-500 text-xs mt-1">{errUpload.title}</div>}
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Título de la actividad"
+                                                    value={uploadData.title}
+                                                    onChange={e => setUploadData('title', e.target.value)}
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errUpload.title && <div className="text-red-500 text-xs mt-1">{errUpload.title}</div>}
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={uploadData.due_date}
+                                                    onChange={e => setUploadData('due_date', e.target.value)}
+                                                    required
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errUpload.due_date && <div className="text-red-500 text-xs mt-1">{errUpload.due_date}</div>}
+                                            </div>
                                         </div>
 
                                         <div>
@@ -325,15 +420,27 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                 {/* PESTAÑA 2: Formulario Creador de Sopa de Letras */}
                                 {creationMode === 'wordsearch' && (
                                     <form onSubmit={submitWordSearch} className="flex flex-col gap-4 animate-fade-in-up">
-                                        <div>
-                                            <input
-                                                type="text"
-                                                placeholder="Título (Ej: Animales en Inglés)"
-                                                value={wsData.title}
-                                                onChange={e => setWsData('title', e.target.value)}
-                                                className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
-                                            />
-                                            {errWs.title && <div className="text-red-500 text-xs mt-1">{errWs.title}</div>}
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Título (Ej: Animales en Inglés)"
+                                                    value={wsData.title}
+                                                    onChange={e => setWsData('title', e.target.value)}
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errWs.title && <div className="text-red-500 text-xs mt-1">{errWs.title}</div>}
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={wsData.due_date}
+                                                    onChange={e => setWsData('due_date', e.target.value)}
+                                                    required
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errWs.due_date && <div className="text-red-500 text-xs mt-1">{errWs.due_date}</div>}
+                                            </div>
                                         </div>
 
                                         <div>
@@ -357,9 +464,21 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                 {/* PESTAÑA 3: Formulario Creador de Crucigrama */}
                                 {creationMode === 'crossword' && (
                                     <form onSubmit={submitCrossword} className="flex flex-col gap-4 animate-fade-in-up">
-                                        <div>
-                                            <input type="text" placeholder="Título (Ej: Conceptos de Biología)" value={cwData.title} onChange={e => setCwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
-                                            {errCw.title && <div className="text-red-500 text-xs mt-1">{errCw.title}</div>}
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <input type="text" placeholder="Título (Ej: Conceptos de Biología)" value={cwData.title} onChange={e => setCwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                                {errCw.title && <div className="text-red-500 text-xs mt-1">{errCw.title}</div>}
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={cwData.due_date}
+                                                    onChange={e => setCwData('due_date', e.target.value)}
+                                                    required
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errCw.due_date && <div className="text-red-500 text-xs mt-1">{errCw.due_date}</div>}
+                                            </div>
                                         </div>
                                         <div>
                                             <textarea
@@ -381,9 +500,21 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                 {/* PESTAÑA 4: Formulario Creador de Drag the Words */}
                                 {creationMode === 'dragwords' && (
                                     <form onSubmit={submitDragWords} className="flex flex-col gap-4 animate-fade-in-up">
-                                        <div>
-                                            <input type="text" placeholder="Título (Ej: Completar Oraciones)" value={dwData.title} onChange={e => setDwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
-                                            {errDw.title && <div className="text-red-500 text-xs mt-1">{errDw.title}</div>}
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <input type="text" placeholder="Título (Ej: Completar Oraciones)" value={dwData.title} onChange={e => setDwData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                                {errDw.title && <div className="text-red-500 text-xs mt-1">{errDw.title}</div>}
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={dwData.due_date}
+                                                    onChange={e => setDwData('due_date', e.target.value)}
+                                                    required
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errDw.due_date && <div className="text-red-500 text-xs mt-1">{errDw.due_date}</div>}
+                                            </div>
                                         </div>
                                         <div>
                                             <textarea
@@ -405,9 +536,21 @@ export default function TeacherShow({ auth, classroom, activities }) {
                                 {/* PESTAÑA 5: Formulario Creador de Fill the Blanks */}
                                 {creationMode === 'blanks' && (
                                     <form onSubmit={submitBlanks} className="flex flex-col gap-4 animate-fade-in-up">
-                                        <div>
-                                            <input type="text" placeholder="Título (Ej: Completar Oraciones Históricas)" value={fbData.title} onChange={e => setFbData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
-                                            {errFb.title && <div className="text-red-500 text-xs mt-1">{errFb.title}</div>}
+                                        <div className="flex gap-4">
+                                            <div className="w-1/2">
+                                                <input type="text" placeholder="Título (Ej: Completar Oraciones Históricas)" value={fbData.title} onChange={e => setFbData('title', e.target.value)} className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500" />
+                                                {errFb.title && <div className="text-red-500 text-xs mt-1">{errFb.title}</div>}
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                    type="datetime-local"
+                                                    value={fbData.due_date}
+                                                    onChange={e => setFbData('due_date', e.target.value)}
+                                                    required
+                                                    className="rounded-md border-gray-300 px-4 py-2 text-sm w-full focus:ring-brand-500 focus:border-brand-500"
+                                                />
+                                                {errFb.due_date && <div className="text-red-500 text-xs mt-1">{errFb.due_date}</div>}
+                                            </div>
                                         </div>
                                         <div>
                                             <textarea

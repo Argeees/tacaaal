@@ -56,7 +56,8 @@ Route::middleware('auth')->group(function () {
         Route::delete('/classrooms/{classroom}/students/{student}', [ClassroomController::class, 'removeStudent'])->name('classrooms.students.destroy');
         
         Route::post('/classrooms/{classroom}/assignments', [\App\Http\Controllers\AssignmentController::class, 'store'])->name('assignments.store');
-        //Route::patch('/submissions/{submission}/grade', [\App\Http\Controllers\AssignmentController::class, 'grade'])->name('submissions.grade');
+        Route::post('/classrooms/{classroom}/announcements', [ClassroomController::class, 'storeAnnouncement'])->name('announcements.store');
+        Route::delete('/announcements/{announcement}', [ClassroomController::class, 'destroyAnnouncement'])->name('announcements.destroy');
     });
 
     // ==========================================
@@ -85,11 +86,14 @@ Route::middleware('auth')->group(function () {
     Route::middleware(['auth', \App\Http\Middleware\IsAdmin::class])->prefix('admin')->group(function () {
         Route::get('/approvals', [\App\Http\Controllers\ApprovalController::class, 'index'])->name('admin.approvals');
         Route::patch('/approvals/{user}', [\App\Http\Controllers\ApprovalController::class, 'approve'])->name('admin.approve');
+        
+        // ☢️ Botón Nuclear de Limpieza (Apunta a ApprovalController)
+        Route::delete('/wipe-data', [\App\Http\Controllers\ApprovalController::class, 'wipeData'])->name('admin.wipe-data');
     });
 
 
     // ==========================================
-    // ⚙️ RUTAS DE PERFIL (Profile)
+    //  RUTAS DE PERFIL (Profile)
     // ==========================================
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

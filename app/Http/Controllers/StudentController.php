@@ -62,12 +62,15 @@ class StudentController extends Controller
             abort(403, 'No estás inscrito en esta clase.');
         }
 
-        // 👇 CORRECCIÓN: Cargar tareas y SOLO la entrega de este alumno específico
-        $classroom->load(['assignments' => function ($query) use ($user) {
-            $query->with(['submissions' => function ($subQuery) use ($user) {
-                $subQuery->where('user_id', $user->id);
-            }]);
-        }]);
+        // Cargar tareas, SOLO la entrega de este alumno específico Y los anuncios
+        $classroom->load([
+            'assignments' => function ($query) use ($user) {
+                $query->with(['submissions' => function ($subQuery) use ($user) {
+                    $subQuery->where('user_id', $user->id);
+                }]);
+            },
+            'announcements' // <-- AQUÍ AGREGAMOS LA CARGA DE ANUNCIOS
+        ]);
 
         // Cargamos las actividades Y ADEMÁS filtramos la calificación de ESTE usuario
         $activities = $classroom->activities()
@@ -102,7 +105,7 @@ class StudentController extends Controller
             abort(404);
         }
 
-        // 🚨 CANDADO 1: Si ya tiene calificación, lo regresamos al salón
+        //  CANDADO 1: Si ya tiene calificación, lo regresamos al salón
         $yaJugo = Grade::where('user_id', $user->id)
                        ->where('activity_id', $activity->id)
                        ->exists();
@@ -110,6 +113,12 @@ class StudentController extends Controller
         if ($yaJugo) {
             return redirect()->route('student.classrooms.show', $classroom->id)
                              ->withErrors(['error' => 'Ya has completado esta actividad y no puedes repetirla.']);
+        }
+
+        //  CANDADO 2: Verificamos si la fecha de vencimiento ya pasó
+        if ($activity->due_date && now()->greaterThan($activity->due_date)) {
+            return redirect()->route('student.classrooms.show', $classroom->id)
+                             ->withErrors(['error' => 'El tiempo para realizar esta actividad ha expirado.']);
         }
 
         return Inertia::render('Teacher/Player', [
@@ -130,7 +139,12 @@ class StudentController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // 🚨 CANDADO 2: Verificamos si ya existe una nota en la base de datos
+        //  CANDADO 3: Verificamos si la fecha de vencimiento ya pasó (por seguridad extra)
+        if ($activity->due_date && now()->greaterThan($activity->due_date)) {
+            return back()->withErrors(['error' => 'El tiempo para guardar esta actividad ha expirado.']);
+        }
+
+        //  CANDADO 4: Verificamos si ya existe una nota en la base de datos
         $notaExistente = Grade::where('user_id', $user->id)
                               ->where('activity_id', $activity->id)
                               ->first();
@@ -140,7 +154,7 @@ class StudentController extends Controller
             return back()->withErrors(['error' => 'Ya tienes calificación en esta actividad. No se puede sobrescribir.']);
         }
 
-        // Si es su primera vez, creamos el registro
+        // Si es su primera vez y está a tiempo, creamos el registro
         Grade::create([
             'user_id' => $user->id,
             'activity_id' => $activity->id,

@@ -26,6 +26,45 @@ export default function Show({ auth, classroom, activities }) {
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
                     {/* ======================================================== */}
+                    {/* ZONA DE ANUNCIOS (VISTA ALUMNO) */}
+                    {/* ======================================================== */}
+                    <div className="mb-10 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2 flex items-center gap-2">
+                            📢 Tablero de Anuncios
+                        </h2>
+
+                        <div className="space-y-4">
+                            {!classroom.announcements || classroom.announcements.length === 0 ? (
+                                <p className="text-gray-500 text-sm italic text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">El profesor no ha publicado anuncios.</p>
+                            ) : (
+                                classroom.announcements.map(announcement => (
+                                    <div key={announcement.id} className="bg-white border-l-4 border-l-yellow-400 border-y border-r border-gray-200 p-5 rounded-r-lg shadow-sm">
+                                        <p className="text-gray-800 whitespace-pre-wrap mb-4">{announcement.content}</p>
+
+                                        <div className="flex flex-wrap gap-4">
+                                            {announcement.file_path && (
+                                                <a href={`/storage/${announcement.file_path}`} target="_blank" download className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-md border border-indigo-100">
+                                                    📄 Descargar Archivo Adjunto
+                                                </a>
+                                            )}
+                                            {announcement.link_url && (
+                                                <a href={announcement.link_url} target="_blank" rel="noreferrer" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+                                                    🔗 Abrir Enlace
+                                                </a>
+                                            )}
+                                        </div>
+
+                                        <p className="text-xs text-gray-400 mt-4 border-t pt-2 border-gray-100">
+                                            Publicado el: {new Date(announcement.created_at).toLocaleString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                    {/* ======================================================== */}
+
+                    {/* ======================================================== */}
                     {/* SECCIÓN DE TAREAS Y ENTREGAS EXTERNAS (VISTA ALUMNO) */}
                     {/* ======================================================== */}
                     <div className="mb-10 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -64,9 +103,29 @@ export default function Show({ auth, classroom, activities }) {
                                             </span>
                                         </div>
                                         <h3 className="text-lg font-bold text-gray-900 mb-2">{activity.title}</h3>
-                                        <p className="text-gray-500 text-sm mb-4">
+                                        <p className="text-gray-500 text-sm mb-2">
                                             Tipo: {activity.h5p_type || 'H5P Genérico'}
                                         </p>
+
+                                        {/* 👇 AQUÍ ESTÁ EL CÓDIGO DE LA FECHA 👇 */}
+                                        <div className="mb-4">
+                                            {activity.due_date ? (
+                                                <div className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-2 py-1 rounded text-xs font-bold border border-red-100">
+                                                    ⏳ Vence: {new Date(activity.due_date).toLocaleString('es-MX', {
+                                                        weekday: 'short',
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded text-xs font-bold border border-green-100">
+                                                    ♾️ Sin límite de tiempo
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* 👆 FIN DEL CÓDIGO DE LA FECHA 👆 */}
 
                                         {/* --- ZONA DE CALIFICACIÓN --- */}
                                         {activity.my_grade ? (
@@ -84,13 +143,20 @@ export default function Show({ auth, classroom, activities }) {
                                         )}
                                         {/* ------------------------------------ */}
 
-                                        {/* --- BOTÓN DE JUEGO (CONDICIONAL) --- */}
+                                        {/* --- BOTÓN DE JUEGO (CONDICIONAL ACTUALIZADO) --- */}
                                         {activity.my_grade ? (
                                             <button
                                                 disabled
                                                 className="block w-full text-center bg-gray-200 text-gray-500 font-bold py-2 px-4 rounded cursor-not-allowed border border-gray-300"
                                             >
                                                 🔒 Actividad Completada
+                                            </button>
+                                        ) : activity.due_date && new Date() > new Date(activity.due_date) ? (
+                                            <button
+                                                disabled
+                                                className="block w-full text-center bg-red-100 text-red-600 font-bold py-2 px-4 rounded cursor-not-allowed border border-red-200"
+                                            >
+                                                ⏳ Tiempo Agotado
                                             </button>
                                         ) : (
                                             <Link

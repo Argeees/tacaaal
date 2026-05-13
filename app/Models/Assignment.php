@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Assignment extends Model
 {
-    protected $fillable = ['classroom_id', 'title', 'instructions', 'due_date'];
+    protected $fillable = ['classroom_id', 'title', 'instructions', 'due_date','file_path',];
 
     // Una tarea pertenece a una clase
     public function classroom()
